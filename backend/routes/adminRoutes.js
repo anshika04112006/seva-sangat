@@ -4,7 +4,8 @@ const {
     getPlatformStats, 
     getAllOrganizations, 
     getAllUsers, 
-    updateOrgStatus 
+    updateOrgStatus,
+    updateOrgFeatured
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -24,5 +25,8 @@ router.get('/stats', getPlatformStats);
 router.get('/organizations', getAllOrganizations);
 router.get('/users', getAllUsers);
 router.put('/orgs/:id/status', updateOrgStatus);
+router.put('/orgs/:id/verify', updateOrgStatus);       // frontend calls /verify
+router.put('/orgs/:id/featured', updateOrgFeatured);   // feature/unfeature org
 
 module.exports = router;
+

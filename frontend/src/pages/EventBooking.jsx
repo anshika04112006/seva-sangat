@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
 import API from '../services/api';
 import { 
     Calendar, MapPin, Users, Info, 
     CheckCircle2, Clock, MapPinned, 
-    CalendarCheck, Loader, AlertCircle
+    CalendarCheck, Loader, AlertCircle, ArrowRight, Sparkles
 } from 'lucide-react';
-import '../assets/styles/index.css';
 
 const EventBooking = () => {
     const [events, setEvents] = useState([]);
@@ -38,16 +37,15 @@ const EventBooking = () => {
         setMessage({ type: '', text: '' });
         try {
             await API.post(`/api/events/${eventId}/book`);
-            setMessage({ type: 'success', text: 'Event booked successfully!' });
+            setMessage({ type: 'success', text: 'Enrolled successfully! See you there.' });
             setUserBookings([...userBookings, eventId]);
         } catch (err) {
             setMessage({ 
                 type: 'error', 
-                text: err.response?.data?.message || 'Failed to book event. Please try again.' 
+                text: err.response?.data?.message || 'Failed to enroll. Please try again.' 
             });
         } finally {
             setBookingLoading(null);
-            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
         }
     };
 
@@ -55,76 +53,84 @@ const EventBooking = () => {
         return (
             <div className="loading-screen">
                 <Loader className="spin" size={48} color="var(--primary)" />
-                <p>Loading upcoming events...</p>
+                <p>Loading upcoming missions...</p>
             </div>
         );
     }
 
     return (
-        <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
-            <Navbar />
+        <div className="app-layout">
+            <Sidebar />
             
-            <main className="booking-page-container">
-                <header className="page-header">
-                    <div className="header-icon-bg">
-                        <CalendarCheck size={32} color="var(--primary)" />
+            <main className="main-content-v2">
+                <header className="welcome-section-v2 animate-up">
+                    <div className="welcome-text">
+                        <div className="badge-ai" style={{ width: 'fit-content' }}>
+                            <Sparkles size={14} /> COMMUNITY DRIVEN
+                        </div>
+                        <h1>Social Impact <span className="text-highlight">Events</span></h1>
+                        <p>Join meaningful initiatives and translate your compassion into action.</p>
                     </div>
-                    <h1>Social Work Events</h1>
-                    <p>Join meaningful initiatives and make a difference in your community.</p>
                 </header>
 
                 {message.text && (
-                    <div className={`booking-alert ${message.type === 'success' ? 'success' : 'error'}`}>
-                        {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    <div className="animate-fade" style={{ marginBottom: '2rem', padding: '15px', borderRadius: '12px', background: message.type === 'success' ? '#f0fdf4' : '#fef2f2', color: message.type === 'success' ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
+                        {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
                         <span>{message.text}</span>
                     </div>
                 )}
 
-                <div className="events-grid">
+                <div className="grid-v2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '2rem' }}>
                     {events.length > 0 ? (
                         events.map(event => (
-                            <div key={event._id} className="event-booking-card">
-                                <div className="event-card-banner">
-                                    <span className="ngo-name-tag">{event.ngoName}</span>
-                                    <div className="event-date-badge">
-                                        <span className="day">{new Date(event.date).getDate()}</span>
-                                        <span className="month">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
+                            <div key={event._id} className="stat-card-v2 animate-fade" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ height: '8px', background: 'var(--primary)', width: '100%' }}></div>
+                                <div style={{ padding: '2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                                        <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '12px', textAlign: 'center', minWidth: '60px' }}>
+                                            <span style={{ fontSize: '1.2rem', fontWeight: 900, display: 'block', color: 'var(--primary)' }}>{new Date(event.date).getDate()}</span>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
+                                        </div>
+                                        <span className="trending" style={{ background: '#f1f5f9', color: '#64748b' }}>{event.ngoName}</span>
                                     </div>
-                                </div>
-                                <div className="event-card-body">
-                                    <h3>{event.title}</h3>
-                                    <div className="event-meta-info">
-                                        <div className="meta-item">
-                                            <Clock size={14} />
-                                            <span>{new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </div>
-                                        <div className="meta-item">
-                                            <MapPinned size={14} />
-                                            <span>{event.location}</span>
-                                        </div>
-                                        <div className="meta-item">
-                                            <Users size={14} />
-                                            <span>{event.volunteersNeeded} Volunteers Required</span>
-                                        </div>
-                                    </div>
-                                    <p className="event-description">{event.description}</p>
+
+                                    <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '1rem' }}>{event.title}</h3>
                                     
-                                    <div className="event-footer">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            <Clock size={16} />
+                                            {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            <MapPinned size={16} />
+                                            {event.location}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', gridColumn: 'span 2' }}>
+                                            <Users size={16} />
+                                            {event.volunteersNeeded} Volunteers Needed
+                                        </div>
+                                    </div>
+
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: '1.6' }}>
+                                        {event.description}
+                                    </p>
+                                    
+                                    <div style={{ marginTop: 'auto' }}>
                                         {userBookings.includes(event._id) ? (
-                                            <div className="already-booked">
-                                                <CheckCircle2 size={18} />
-                                                <span>Registered</span>
+                                            <div className="btn-glass" style={{ width: '100%', pointerEvents: 'none', background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', opacity: 1, display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                                                <CheckCircle2 size={18} /> Registered
                                             </div>
                                         ) : (
                                             <button 
-                                                className="btn-book-now"
+                                                className="btn-glass"
                                                 onClick={() => handleBook(event._id)}
                                                 disabled={bookingLoading === event._id}
+                                                style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', display: 'flex', justifyContent: 'center', gap: '8px' }}
                                             >
                                                 {bookingLoading === event._id ? (
                                                     <Loader className="spin" size={18} />
                                                 ) : (
-                                                    'Book Spot'
+                                                    <>Volunteer Now <ArrowRight size={18} /></>
                                                 )}
                                             </button>
                                         )}
@@ -133,10 +139,10 @@ const EventBooking = () => {
                             </div>
                         ))
                     ) : (
-                        <div className="no-events-view">
-                            <Info size={48} color="#dfe6e9" />
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '6rem 2rem' }}>
+                            <Info size={64} style={{ opacity: 0.1, marginBottom: '1.5rem' }} />
                             <h3>No upcoming events</h3>
-                            <p>Check back later for new opportunities to volunteer!</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Check back later for new opportunities to volunteer!</p>
                         </div>
                     )}
                 </div>

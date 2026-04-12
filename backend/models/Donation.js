@@ -14,7 +14,7 @@ const donationSchema = mongoose.Schema(
         },
         donationType: {
             type: String,
-            enum: ['money', 'food', 'clothes'],
+            enum: ['money', 'food', 'clothes', 'books', 'medical'],
             required: true
         },
         amount: {
@@ -31,8 +31,8 @@ const donationSchema = mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['pending', 'completed', 'cancelled'],
-            default: 'completed'
+            enum: ['pending', 'received', 'dispatched', 'distributing', 'completed', 'cancelled'],
+            default: 'pending'
         },
         paymentId: {
             type: String,
@@ -46,7 +46,14 @@ const donationSchema = mongoose.Schema(
             type: String,
             enum: ['pending', 'success', 'failed'],
             default: 'pending'
-        }
+        },
+        trackingHistory: [
+            {
+                status: String,
+                timestamp: { type: Date, default: Date.now },
+                message: String
+            }
+        ]
     },
     {
         timestamps: true

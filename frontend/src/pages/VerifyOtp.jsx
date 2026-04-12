@@ -1,131 +1,113 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { KeyRound, ArrowLeft, RefreshCw } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import API from '../services/api';
-import '../assets/styles/index.css';
+import toast from 'react-hot-toast';
+import { ShieldCheck, Loader, ArrowRight } from 'lucide-react';
 
 const VerifyOtp = () => {
-    const [otp, setOtp] = useState('');
-    const [error, setError] = useState('');
+    const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [resendLoading, setResendLoading] = useState(false);
-    const [resendMessage, setResendMessage] = useState('');
-
     const location = useLocation();
     const navigate = useNavigate();
     const email = location.state?.email;
 
     useEffect(() => {
         if (!email) {
-            navigate('/forgot-password');
+            toast.error("Invalid access");
+            navigate('/register');
         }
     }, [email, navigate]);
 
+    const handleChange = (element, index) => {
+        if (isNaN(element.value)) return false;
+
+        setOtp([...otp.map((d, idx) => (idx === index ? element.value : d))]);
+
+        // Focus next input
+        if (element.nextSibling) {
+            element.nextSibling.focus();
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!otp || otp.length !== 6) {
-            setError('Please enter a valid 6-digit OTP');
+        const otpCode = otp.join('');
+        if (otpCode.length !== 6) {
+            toast.error("Please enter 6-digit OTP");
             return;
         }
 
         setLoading(true);
-        setError('');
-
         try {
-            await API.post('/api/auth/verify-otp', { email, otp });
-            setSuccess(true);
-            
-            // Redirect to reset password after verification
-            setTimeout(() => {
-                navigate('/reset-password', { state: { email, otp } });
-            }, 1500);
+            const res = await API.post('/api/auth/verify-otp', { email, otp: otpCode });
+            toast.success("Account verified successfully!");
+            // Store token if needed or redirect to login
+            localStorage.setItem('token', res.data.token);
+            navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid OTP. Please try again.');
+            toast.error(err.response?.data?.message || "Verification failed");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleResend = async () => {
-        setResendLoading(true);
-        setResendMessage('');
-        setError('');
-
-        try {
-            await API.post('/api/auth/forgot-password', { email });
-            setResendMessage('OTP resent successfully!');
-        } catch (err) {
-            setError('Failed to resend OTP. Please try again.');
-        } finally {
-            setResendLoading(false);
-        }
-    };
-
     return (
-        <div className="auth-container">
-            <div className="auth-card">
-                <div className="auth-header">
-                    <h1>Verify OTP</h1>
-                    <p>We've sent a 6-digit code to <strong>{email}</strong></p>
+        <div style={{ background: '#f8f9fb', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '450px', background: 'white', padding: '3rem', borderRadius: '30px', boxShadow: '0 20px 50px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+                <div style={{ width: '70px', height: '70px', background: 'rgba(255, 107, 107, 0.1)', color: 'var(--primary)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                    <ShieldCheck size={32} />
                 </div>
-
-                {error && <div className="alert alert-error">{error}</div>}
-                {success && <div className="alert alert-success">OTP verified! Redirecting to reset password...</div>}
-                {resendMessage && <div className="alert alert-success">{resendMessage}</div>}
+                
+                <h2 style={{ fontSize: '1.8rem', marginBottom: '10px' }}>Verify your email</h2>
+                <p style={{ color: '#7f8c8d', fontSize: '0.95rem', marginBottom: '2rem' }}>We've sent a 6-digit code to <br /><strong>{email}</strong></p>
 
                 <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label>Enter 6-Digit Code</label>
-                        <div style={{ position: 'relative' }}>
-                            <KeyRound size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#636e72' }} />
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '2rem' }}>
+                        {otp.map((data, index) => (
                             <input
+                                key={index}
                                 type="text"
-                                className="form-control"
-                                placeholder="123456"
-                                maxLength="6"
-                                style={{ paddingLeft: '40px', letterSpacing: '8px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem' }}
-                                value={otp}
-                                onChange={(e) => {
-                                    setOtp(e.target.value.replace(/\D/g, ''));
-                                    if (error) setError('');
+                                maxLength="1"
+                                value={data}
+                                onChange={e => handleChange(e.target, index)}
+                                onFocus={e => e.target.select()}
+                                style={{
+                                    width: '50px',
+                                    height: '60px',
+                                    textAlign: 'center',
+                                    fontSize: '1.5rem',
+                                    fontWeight: 700,
+                                    borderRadius: '12px',
+                                    border: '2px solid #eee',
+                                    outline: 'none',
+                                    transition: '0.3s'
                                 }}
                             />
-                        </div>
+                        ))}
                     </div>
 
                     <button 
                         type="submit" 
-                        className="btn-primary"
-                        disabled={loading || success}
+                        className="btn btn-primary" 
+                        style={{ width: '100%', height: '55px', fontSize: '1.1rem', borderRadius: '15px' }}
+                        disabled={loading}
                     >
-                        {loading ? 'Verifying...' : 'Verify OTP'}
+                        {loading ? <Loader className="spin" size={22} /> : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                Verify Account <ArrowRight size={20} />
+                            </div>
+                        )}
                     </button>
-
-                    <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-                        <p style={{ fontSize: '0.9rem', color: '#636e72' }}>
-                            Didn't receive the code?{' '}
-                            <button
-                                type="button"
-                                onClick={handleResend}
-                                disabled={resendLoading || success}
-                                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', padding: 0, display: 'inline-flex', alignItems: 'center' }}
-                            >
-                                {resendLoading ? <RefreshCw size={14} className="spin" style={{ marginRight: '4px' }} /> : null}
-                                Resend OTP
-                            </button>
-                        </p>
-                    </div>
-
-                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <Link to="/login" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>
-                            <ArrowLeft size={16} style={{ marginRight: '8px' }} />
-                            Back to Login
-                        </Link>
-                    </div>
                 </form>
+
+                <p style={{ marginTop: '2rem', color: '#7f8c8d', fontSize: '0.9rem' }}>
+                    Didn't receive the code? <span style={{ color: 'var(--primary)', fontWeight: 700, cursor: 'pointer' }}>Resend</span>
+                </p>
             </div>
+            
+            <style>{`
+                input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1); }
+            `}</style>
         </div>
     );
 };

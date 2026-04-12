@@ -19,8 +19,12 @@ const bookingSchema = mongoose.Schema(
         },
         participationStatus: {
             type: String,
-            enum: ['not-attended', 'attended', 'no-show'],
+            enum: ['not-attended', 'attended', 'completed', 'no-show'],
             default: 'not-attended'
+        },
+        certificateId: {
+            type: String,
+            default: null
         }
     },
     {

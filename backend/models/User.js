@@ -28,20 +28,31 @@ const userSchema = mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ['user', 'ngo', 'admin'],
-            default: 'user',
+            enum: ['volunteer', 'beneficiary', 'admin', 'organization'],
+            default: 'volunteer',
         },
         skills: {
             type: [String],
             default: [],
         },
+        // Demographic Data for AI Matching
+        demographicData: {
+            age: Number,
+            gender: String,
+            householdSize: Number,
+            income: Number,
+        },
+        needs: {
+            type: [String],
+            default: [], // e.g., 'healthcare', 'legal_aid', 'jobs'
+        },
         location: {
             type: String,
-            required: [true, 'Please add a location'],
+            default: '',
         },
         isVerified: {
             type: Boolean,
-            default: false,
+            default: true,
         },
     },
     {
@@ -50,9 +61,9 @@ const userSchema = mongoose.Schema(
 );
 
 // Hashing password before saving
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
     if (!this.isModified('password')) {
-        next();
+        return;
     }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

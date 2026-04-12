@@ -8,17 +8,21 @@ const {
     getUserBookings,
     getNgoEvents,
     getNgoStats,
-    getEventVolunteers
+    getEventsByOrg,
+    getEventVolunteers,
+    completeParticipation
 } = require('../controllers/eventController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.get('/', getAllEvents);
-router.post('/', protect, createEvent);
+router.get('/by-org/:orgId', getEventsByOrg); // public – for OrganizationDetails page
+router.post('/', protect, authorize('organization'), createEvent);
 router.get('/recommendations', protect, getRecommendations);
 router.get('/my-bookings', protect, getUserBookings);
-router.get('/ngo-events', protect, getNgoEvents);
-router.get('/ngo/stats', protect, getNgoStats);
-router.get('/:id/volunteers', protect, getEventVolunteers);
+router.get('/ngo-events', protect, authorize('organization'), getNgoEvents);
+router.get('/ngo/stats', protect, authorize('organization'), getNgoStats);
+router.get('/:id/volunteers', protect, authorize('organization'), getEventVolunteers);
 router.post('/:id/book', protect, bookEvent);
+router.put('/bookings/:id/complete', protect, authorize('organization'), completeParticipation);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const Otp = require('../models/Otp');
+const Organization = require('../models/Organization');
 const generateToken = require('../utils/generateToken');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
@@ -8,86 +8,100 @@ const sendEmail = require('../utils/sendEmail');
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res) => {
-    const { fullName, email, phone, password, role, skills, location } = req.body;
+    const { fullName, email, phone, password, role, profileData, orgData } = req.body;
 
-    if (!fullName || !email || !phone || !password || !location) {
+    if (!fullName || !email || !phone || !password || !role) {
         return res.status(400).json({ message: 'Please include all required fields' });
     }
 
-    // Basic email validation
-    const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: 'Please provide a valid email address' });
-    }
-
-    // Password length validation
-    if (password.length < 6) {
-        return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    if (role === 'organization' && !orgData) {
+        return res.status(400).json({ message: 'Organization details are required for NGOs' });
     }
 
     try {
         let user = await User.findOne({ email });
         
         if (user && user.isVerified) {
-            return res.status(400).json({ message: 'User already exists and is verified' });
+            return res.status(400).json({ message: 'User already exists' });
         }
 
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
         if (user && !user.isVerified) {
-            // Update existing unverified user with new details
             user.fullName = fullName;
             user.phone = phone;
             user.password = password;
-            user.role = role || 'user';
-            user.skills = skills || [];
-            user.location = location;
+            user.role = role;
+            user.profileData = profileData;
+            user.otp = otp;
+            user.otpExpire = otpExpire;
             await user.save();
         } else {
-            // Create new unverified user
             user = await User.create({
                 fullName,
                 email,
                 phone,
                 password,
                 role,
-                skills,
-                location,
+                profileData,
+                otp,
+                otpExpire,
                 isVerified: false
             });
         }
 
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        await Otp.create({ email, otp });
+        if (role === 'organization' && orgData) {
+            // Check to avoid duplicate Org creations
+            const existingOrg = await Organization.findOne({ email });
+            if (!existingOrg) {
+                await Organization.create({
+                    name: fullName,
+                    email: email,
+                    phone: phone,
+                    category: orgData.category,
+                    address: orgData.address,
+                    city: orgData.city,
+                    state: orgData.state,
+                    description: orgData.description,
+                    registrationCertificate: orgData.registrationCertificate,
+                    verified: false
+                });
+            }
+        }
 
-        // Send Real OTP Email
+        // Send real OTP email
         try {
             await sendEmail({
                 email: user.email,
-                subject: 'Seva Sangat - Verification OTP',
-                message: `Your verification OTP is: ${otp}. It will expire in 10 minutes.`,
+                subject: 'Your Seva Sangat OTP Verification Code',
+                message: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
                 html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #ff9f43; text-align: center;">Welcome to Seva Sangat!</h2>
-                        <p>Hi ${user.fullName},</p>
-                        <p>Thank you for joining our community. Please use the following OTP to verify your account:</p>
-                        <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #2d3436; border-radius: 5px; margin: 20px 0;">
-                            ${otp}
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 480px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                        <div style="background: linear-gradient(135deg, #16a34a, #2ecc71); padding: 30px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 1.8rem;">Seva Sangat</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0;">Email Verification</p>
                         </div>
-                        <p>This code will expire in 10 minutes. If you didn't request this, please ignore this email.</p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 12px; color: #636e72; text-align: center;">&copy; ${new Date().getFullYear()} Seva Sangat. Empowering Social Impact.</p>
+                        <div style="padding: 40px 30px; text-align: center;">
+                            <p style="font-size: 1.1rem; color: #475569; margin-bottom: 30px;">Hi <strong>${fullName}</strong>, use this OTP to verify your email address:</p>
+                            <div style="background: #f0fdf4; border: 2px dashed #16a34a; border-radius: 12px; padding: 25px; margin: 20px 0; display: inline-block;">
+                                <span style="font-size: 2.5rem; font-weight: 900; letter-spacing: 12px; color: #16a34a;">${otp}</span>
+                            </div>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 20px;">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+                        </div>
+                        <div style="background: #f8fafc; padding: 20px; text-align: center; font-size: 0.8rem; color: #94a3b8;">
+                            Team Seva Sangat • Empowering Kindness Through Technology
+                        </div>
                     </div>
                 `
             });
-        } catch (mailError) {
-            console.error('Email sending failed:', mailError);
-            // We don't block the response, but log the error. 
-            // In a production app, you might want to handle this differently.
+        } catch (emailErr) {
+            console.error('OTP email failed, logging to console instead:', emailErr.message);
+            console.log(`[FALLBACK] OTP for ${email}: ${otp}`);
         }
 
-        res.status(200).json({
-            success: true,
-            message: 'Registration initiated. Please verify OTP sent to your email.',
+        res.status(201).json({
+            message: 'Registration successful. Please verify OTP sent to your email.',
             email: user.email
         });
     } catch (error) {
@@ -95,47 +109,6 @@ const registerUser = async (req, res) => {
     }
 };
 
-// @desc    Verify Registration OTP
-// @route   POST /api/auth/register-verify
-// @access  Public
-const verifyRegistration = async (req, res) => {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-        return res.status(400).json({ message: 'Please provide email and OTP' });
-    }
-
-    try {
-        const otpRecord = await Otp.findOne({ email, otp });
-
-        if (!otpRecord) {
-            return res.status(400).json({ message: 'Invalid or expired OTP' });
-        }
-
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        user.isVerified = true;
-        await user.save();
-
-        // Delete used OTP
-        await Otp.deleteMany({ email });
-
-        res.status(200).json({
-            success: true,
-            _id: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role,
-            token: generateToken(user._id),
-            message: 'Account verified successfully'
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
 
 // @desc    Authenticate a user
 // @route   POST /api/auth/login
@@ -143,27 +116,14 @@ const verifyRegistration = async (req, res) => {
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Please include both email and password' });
-    }
-
-    // Basic email validation
-    const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: 'Please provide a valid email address' });
-    }
-
     try {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
             if (!user.isVerified) {
-                return res.status(401).json({ 
-                    message: 'Please verify your account first',
-                    isUnverified: true,
-                    email: user.email 
-                });
+                return res.status(401).json({ message: 'Please verify your account first' });
             }
+
             res.json({
                 _id: user._id,
                 fullName: user.fullName,
@@ -179,125 +139,53 @@ const loginUser = async (req, res) => {
     }
 };
 
-// @desc    Forgot Password - Send OTP
-// @route   POST /api/auth/forgot-password
-// @access  Public
-const forgotPassword = async (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-        return res.status(400).json({ message: 'Please provide an email' });
-    }
+const verifyOTP = async (req, res) => {
+    const { email, otp } = req.body;
 
     try {
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.status(404).json({ message: 'User with this email does not exist' });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // Save OTP to database
-        await Otp.create({ email, otp });
-
-        // Send Real OTP Email
-        try {
-            await sendEmail({
-                email: user.email,
-                subject: 'Seva Sangat - Password Reset OTP',
-                message: `Your password reset OTP is: ${otp}. It will expire in 10 minutes.`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #ff9f43; text-align: center;">Password Reset Request</h2>
-                        <p>Hi ${user.fullName},</p>
-                        <p>We received a request to reset your password. Please use the following OTP to proceed:</p>
-                        <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #2d3436; border-radius: 5px; margin: 20px 0;">
-                            ${otp}
-                        </div>
-                        <p>This code will expire in 10 minutes. If you didn't request a password reset, please secure your account immediately.</p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 12px; color: #636e72; text-align: center;">&copy; ${new Date().getFullYear()} Seva Sangat. Empowering Social Impact.</p>
-                    </div>
-                `
-            });
-        } catch (mailError) {
-            console.error('Email sending failed:', mailError);
+        if (user.otp !== otp || user.otpExpire < Date.now()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
         }
-        
-        res.status(200).json({ 
-            success: true, 
-            message: 'OTP sent to your email' 
+
+        user.isVerified = true;
+        user.otp = undefined;
+        user.otpExpire = undefined;
+        await user.save();
+
+        res.json({
+            _id: user._id,
+            token: generateToken(user._id),
+            message: 'Email verified successfully'
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Verify OTP
-// @route   POST /api/auth/verify-otp
-// @access  Public
-const verifyOtp = async (req, res) => {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-        return res.status(400).json({ message: 'Please provide email and OTP' });
-    }
-
+// @desc    Get logged-in user profile
+// @route   GET /api/auth/profile
+// @access  Private
+const getProfile = async (req, res) => {
     try {
-        const otpRecord = await Otp.findOne({ email, otp });
-
-        if (!otpRecord) {
-            return res.status(400).json({ message: 'Invalid or expired OTP' });
-        }
-
-        res.status(200).json({ success: true, message: 'OTP verified successfully' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// @desc    Reset Password
-// @route   POST /api/auth/reset-password
-// @access  Public
-const resetPassword = async (req, res) => {
-    const { email, otp, newPassword } = req.body;
-
-    if (!email || !otp || !newPassword) {
-        return res.status(400).json({ message: 'Please provide all fields' });
-    }
-
-    try {
-        const otpRecord = await Otp.findOne({ email, otp });
-
-        if (!otpRecord) {
-            return res.status(400).json({ message: 'Invalid or expired OTP' });
-        }
-
-        const user = await User.findOne({ email });
+        const user = await User.findById(req.user.id).select('-password -otp -otpExpire');
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
-
-        // Update password (pre-save hook will handle hashing)
-        user.password = newPassword;
-        await user.save();
-
-        // Delete used OTP
-        await Otp.deleteMany({ email });
-
-        res.status(200).json({ success: true, message: 'Password reset successful' });
+        res.status(200).json({ success: true, data: user });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 module.exports = {
     registerUser,
     loginUser,
-    forgotPassword,
-    verifyOtp,
-    resetPassword,
-    verifyRegistration
+    verifyOTP,
+    getProfile,
 };

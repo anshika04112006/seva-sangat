@@ -1,5 +1,6 @@
 const Donation = require('../models/Donation');
 const Organization = require('../models/Organization');
+const sendEmail = require('../utils/sendEmail');
 
 // @desc    Submit a new donation
 // @route   POST /api/donations
@@ -20,8 +21,40 @@ const submitDonation = async (req, res) => {
             amount: donationType === 'money' ? amount : undefined,
             itemDescription: donationType !== 'money' ? itemDescription : undefined,
             quantity: donationType !== 'money' ? quantity : undefined,
-            paymentStatus: donationType === 'money' ? 'success' : 'pending' // Dummy success for money
+            paymentStatus: donationType === 'money' ? 'success' : 'pending',
+            status: 'pending',
+            trackingHistory: [{
+                status: 'pending',
+                message: `Donation of ${donationType} initiated for ${org.name}.`
+            }]
         });
+
+        // Send confirmation email
+        try {
+            await sendEmail({
+                email: req.user.email,
+                subject: 'Donation Confirmation - Seva Sangat',
+                message: `Thank you for your donation to ${org.name}. Your contribution is being processed.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                        <h2 style="color: #2ecc71;">Donation Received!</h2>
+                        <p>Hi ${req.user.fullName},</p>
+                        <p>Thank you for your generous donation to <strong>${org.name}</strong>.</p>
+                        <hr />
+                        <p><strong>Type:</strong> ${donationType}</p>
+                        ${amount ? `<p><strong>Amount:</strong> ₹${amount}</p>` : ''}
+                        ${itemDescription ? `<p><strong>Item:</strong> ${itemDescription}</p>` : ''}
+                        <p><strong>Tracking Status:</strong> Pending</p>
+                        <hr />
+                        <p>You can track the status of your donation on your dashboard.</p>
+                        <p>With gratitude,<br/>Team Seva Sangat</p>
+                    </div>
+                `
+            });
+        } catch (emailErr) {
+            console.error('Email sending failed:', emailErr);
+            // Don't fail the request if email fails
+        }
 
         res.status(201).json({
             success: true,
@@ -63,9 +96,15 @@ const getDonationsByDonor = async (req, res) => {
 // @access  Private/NGO
 const getDonationsByOrg = async (req, res) => {
     try {
-        // Assuming req.user is the organization user and we have a way to link it to Org model
-        // For now, filtering by organizationId directly if it matches user ID (simple mapping)
-        const donations = await Donation.find({ organizationId: req.user.id })
+        let organizationQuery = req.user.id;
+        
+        // Try to match the authenticated User to an Organization by email
+        const orgMatch = await Organization.findOne({ email: req.user.email });
+        if (orgMatch) {
+            organizationQuery = orgMatch._id;
+        }
+
+        const donations = await Donation.find({ organizationId: organizationQuery })
             .populate('donorId', 'fullName email phone')
             .sort({ createdAt: -1 });
 
@@ -87,13 +126,42 @@ const getDonationsByOrg = async (req, res) => {
 // @access  Private/NGO
 const updateDonationStatus = async (req, res) => {
     try {
-        const donation = await Donation.findById(req.params.id);
+        const { status, message } = req.body;
+        const donation = await Donation.findById(req.params.id).populate('donorId', 'email fullName');
+        
         if (!donation) {
             return res.status(404).json({ success: false, message: 'Donation not found' });
         }
 
-        donation.status = req.body.status || donation.status;
+        donation.status = status || donation.status;
+        donation.trackingHistory.push({
+            status: donation.status,
+            message: message || `Donation status updated to ${donation.status}`
+        });
+
         await donation.save();
+
+        // Send status update email
+        try {
+            await sendEmail({
+                email: donation.donorId.email,
+                subject: `Donation Update - ${donation.status.toUpperCase()}`,
+                message: `Your donation status has been updated to ${donation.status}.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                        <h2 style="color: #2ecc71;">Donation Update</h2>
+                        <p>Hi ${donation.donorId.fullName},</p>
+                        <p>The status of your donation has been updated to: <strong style="color: #16a34a;">${donation.status.toUpperCase()}</strong></p>
+                        <p><strong>Note from NGO:</strong> ${message || 'No additional notes.'}</p>
+                        <hr />
+                        <p>Visit your dashboard for real-time tracking.</p>
+                        <p>Best regards,<br/>Team Seva Sangat</p>
+                    </div>
+                `
+            });
+        } catch (emailErr) {
+            console.error('Email sending failed:', emailErr);
+        }
 
         res.status(200).json({
             success: true,

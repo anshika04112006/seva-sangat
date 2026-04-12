@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
 import API from '../services/api';
 import { 
     ShieldCheck, Users, LandPlot, 
     HeartHandshake, TrendingUp, AlertCircle,
     CheckCircle2, XCircle, Search, 
     Filter, MoreVertical, Loader,
-    ChevronRight, ArrowUpRight, MessageSquare
+    ChevronRight, ArrowUpRight, MessageSquare, Wallet, Banknote,
+    Activity, Eye
 } from 'lucide-react';
-import '../assets/styles/index.css';
+import { 
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+    Tooltip, ResponsiveContainer 
+} from 'recharts';
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({
@@ -23,22 +27,25 @@ const AdminDashboard = () => {
     const [users, setUsers] = useState([]);
     const [complaints, setComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('stats');
+    const [activeTab, setActiveTab] = useState('overview');
     const [searchQuery, setSearchQuery] = useState('');
+    const [withdrawals, setWithdrawals] = useState([]);
 
     useEffect(() => {
         const fetchAdminData = async () => {
             try {
-                const [statsRes, orgsRes, usersRes, complaintsRes] = await Promise.all([
+                const [statsRes, orgsRes, usersRes, complaintsRes, withdrawalsRes] = await Promise.all([
                     API.get('/api/admin/stats'),
                     API.get('/api/admin/organizations'),
                     API.get('/api/admin/users'),
-                    API.get('/api/complaints/admin')
+                    API.get('/api/complaints/admin'),
+                    API.get('/api/withdrawals')
                 ]);
                 setStats(statsRes.data.data);
                 setOrganizations(orgsRes.data.data);
                 setUsers(usersRes.data.data);
                 setComplaints(complaintsRes.data.data);
+                setWithdrawals(withdrawalsRes.data.data);
             } catch (err) {
                 console.error("Platform management data fetch failed", err);
             } finally {
@@ -48,11 +55,32 @@ const AdminDashboard = () => {
         fetchAdminData();
     }, []);
 
+    const handleWithdrawalAction = async (id, status) => {
+        const adminNote = prompt(`Reason for ${status} (Optional):`);
+        try {
+            await API.put(`/api/withdrawals/${id}`, { status, adminNote });
+            setWithdrawals(prev => prev.map(w => w._id === id ? { ...w, status, adminNote } : w));
+            alert(`Withdrawal request ${status} successfully`);
+        } catch (err) {
+            alert("Action failed");
+        }
+    };
+
     const handleOrgAction = async (id, verified) => {
         try {
-            await API.put(`/api/admin/orgs/${id}/status`, { verified });
-            setOrganizations(orgs => orgs.map(o => o._id === id ? { ...o, verified } : o));
+            await API.put(`/api/admin/orgs/${id}/verify`, { verified });
+            setOrganizations(orgs => orgs.map(o => o._id === id ? { ...o, verified, status: verified ? 'approved' : 'rejected' } : o));
             alert(`Organization ${verified ? 'Approved' : 'Rejected'} successfully`);
+        } catch (err) {
+            alert("Action failed: " + (err.response?.data?.message || err.message));
+        }
+    };
+
+    const handleFeatureAction = async (id, isFeatured) => {
+        try {
+            await API.put(`/api/admin/orgs/${id}/featured`, { isFeatured });
+            setOrganizations(orgs => orgs.map(o => o._id === id ? { ...o, isFeatured } : o));
+            alert(`Organization ${isFeatured ? 'featured' : 'unfeatured'} successfully`);
         } catch (err) {
             alert("Action failed");
         }
@@ -67,6 +95,12 @@ const AdminDashboard = () => {
         }
     };
 
+    const chartData = [
+        { name: 'Volunteers', count: stats.totalUsers },
+        { name: 'NGOs', count: stats.totalNGOs },
+        { name: 'Events', count: stats.totalEvents },
+    ];
+
     if (loading) {
         return (
             <div className="loading-screen">
@@ -77,296 +111,284 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
-            <Navbar />
+        <div className="app-layout">
+            <Sidebar />
             
-            <div className="admin-layout">
-                <aside className="admin-nav-rail">
-                    <div className="admin-brand">
-                        <ShieldCheck size={32} color="var(--primary)" />
-                        <span>PLATFORM CORE</span>
+            <main className="main-content-v2">
+                <header className="welcome-section-v2 animate-up">
+                    <div className="welcome-text">
+                        <span>Systems Administration</span>
+                        <h1>Platform Oversight</h1>
+                        <p>Monitoring Seva Sangat's global impact and ecosystem health.</p>
                     </div>
-                    <nav>
-                        <button className={activeTab === 'stats' ? 'active' : ''} onClick={() => setActiveTab('stats')}>
-                            <TrendingUp size={20} /> Impact Analytics
-                        </button>
-                        <button className={activeTab === 'verification' ? 'active' : ''} onClick={() => setActiveTab('verification')}>
-                            <AlertCircle size={20} /> NGO Verifications
-                        </button>
-                        <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
-                            <Users size={20} /> User Directory
-                        </button>
-                        <button className={activeTab === 'ngos' ? 'active' : ''} onClick={() => setActiveTab('ngos')}>
-                            <LandPlot size={20} /> NGO Ledger
-                        </button>
-                        <button className={activeTab === 'complaints' ? 'active' : ''} onClick={() => setActiveTab('complaints')}>
-                            <MessageSquare size={20} /> User Complaints {complaints.filter(c => c.status === 'pending').length > 0 && <span>({complaints.filter(c => c.status === 'pending').length})</span>}
-                        </button>
-                    </nav>
-// ... (rest of the component structure)
-                    <div className="admin-profile-pill">
-                        <div className="admin-avatar">AD</div>
-                        <div className="admin-info">
-                            <strong>Global Admin</strong>
-                            <span>Systems Control</span>
+                </header>
+
+                <div className="tab-nav-v2 animate-up">
+                    <button className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>Overview</button>
+                    <button className={activeTab === 'verification' ? 'active' : ''} onClick={() => setActiveTab('verification')}>Verifications</button>
+                    <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>Users</button>
+                    <button className={activeTab === 'withdrawals' ? 'active' : ''} onClick={() => setActiveTab('withdrawals')}>Finances</button>
+                    <button className={activeTab === 'complaints' ? 'active' : ''} onClick={() => setActiveTab('complaints')}>Complaints</button>
+                </div>
+
+                {activeTab === 'overview' && (
+                    <div className="animate-fade">
+                        <div className="stats-row-v2">
+                            <div className="stat-card-v2">
+                                <div className="stat-content">
+                                    <div className="stat-icon-v2"><Users size={24} /></div>
+                                    <label>Total Volunteers</label>
+                                    <h2>{stats.totalUsers}</h2>
+                                    <span className="trending">+12% this month</span>
+                                </div>
+                            </div>
+                            <div className="stat-card-v2">
+                                <div className="stat-content">
+                                    <div className="stat-icon-v2" style={{ background: '#e0f2fe', color: '#0369a1' }}><LandPlot size={24} /></div>
+                                    <label>Verified NGOs</label>
+                                    <h2>{stats.totalNGOs}</h2>
+                                </div>
+                            </div>
+                            <div className="stat-card-v2">
+                                <div className="stat-content">
+                                    <div className="stat-icon-v2" style={{ background: '#fef2f2', color: '#dc2626' }}><HeartHandshake size={24} /></div>
+                                    <label>Funds Mobilized</label>
+                                    <h2>₹{stats.totalFundsRaised.toLocaleString()}</h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="dashboard-main-grid-v2">
+                            <section className="chart-container-v2">
+                                <div className="container-header">
+                                    <h3>Ecosystem Distribution</h3>
+                                </div>
+                                <div style={{ height: '300px', width: '100%' }}>
+                                    <ResponsiveContainer>
+                                        <BarChart data={chartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                                            <YAxis axisLine={false} tickLine={false} />
+                                            <Tooltip 
+                                                contentStyle={{ 
+                                                    borderRadius: '12px', 
+                                                    border: 'none', 
+                                                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' 
+                                                }} 
+                                            />
+                                            <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </section>
+
+                            <section className="quick-actions-v2">
+                                <h3>Health Metrics</h3>
+                                <div className="action-item-v2">
+                                    <div className="action-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}><Activity size={18} /></div>
+                                    <div className="action-info">
+                                        <strong>API Gateway</strong>
+                                        <span style={{ color: '#16a34a' }}>99.9% Uptime</span>
+                                    </div>
+                                </div>
+                                <div className="action-item-v2">
+                                    <div className="action-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}><ShieldCheck size={18} /></div>
+                                    <div className="action-info">
+                                        <strong>Database</strong>
+                                        <span style={{ color: '#16a34a' }}>Synchronized</span>
+                                    </div>
+                                </div>
+                                <div className="action-item-v2">
+                                    <div className="action-icon" style={{ background: '#fef2f2', color: '#dc2626' }}><AlertCircle size={18} /></div>
+                                    <div className="action-info">
+                                        <strong>Pending Reports</strong>
+                                        <span style={{ color: '#dc2626' }}>{complaints.filter(c => c.status === 'pending').length} unaddressed</span>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                     </div>
-                </aside>
+                )}
 
-                <main className="admin-board">
-                    {activeTab === 'stats' && (
-                        <div className="admin-view animate-fade">
-                            <header className="board-header">
-                                <h1>Platform Oversight</h1>
-                                <p>Monitoring Seva Sangat's global impact and ecosystem health.</p>
-                            </header>
-
-                            <div className="global-stats-grid">
-                                <div className="platform-stat-card">
-                                    <div className="card-top">
-                                        <div className="icon-wrap bg-blue"><Users size={24} /></div>
-                                        <span className="trend positive">+12%</span>
-                                    </div>
-                                    <h3>{stats.totalUsers}</h3>
-                                    <label>Active Volunteers</label>
-                                </div>
-                                <div className="platform-stat-card">
-                                    <div className="card-top">
-                                        <div className="icon-wrap bg-orange"><LandPlot size={24} /></div>
-                                        <span className="trend positive">+5%</span>
-                                    </div>
-                                    <h3>{stats.totalNGOs}</h3>
-                                    <label>Verified Organizations</label>
-                                </div>
-                                <div className="platform-stat-card">
-                                    <div className="card-top">
-                                        <div className="icon-wrap bg-green"><HeartHandshake size={24} /></div>
-                                        <span className="trend positive">+₹2.4k</span>
-                                    </div>
-                                    <h3>₹{stats.totalFundsRaised.toLocaleString()}</h3>
-                                    <label>Capital Mobilized</label>
-                                </div>
-                                <div className="platform-stat-card">
-                                    <div className="card-top">
-                                        <div className="icon-wrap bg-purple"><TrendingUp size={24} /></div>
-                                        <span className="trend">Growth</span>
-                                    </div>
-                                    <h3>{stats.totalEvents}</h3>
-                                    <label>Events Hosted</label>
-                                </div>
+                {activeTab === 'verification' && (
+                    <div className="animate-fade">
+                        <div className="chart-container-v2">
+                            <div className="container-header">
+                                <h3>Approval & Spotlight Queue</h3>
                             </div>
-
-                            <div className="admin-dual-grid">
-                                <section className="platform-ledger">
-                                    <div className="section-title-wrap">
-                                        <h3>Recent Global Donations</h3>
-                                        <button>View Ledger</button>
-                                    </div>
-                                    <div className="ledger-rows">
-                                        {stats.recentDonations.map(don => (
-                                            <div key={don._id} className="ledger-item">
-                                                <div className="item-meta">
-                                                    <strong>{don.donorId?.fullName || "Anonymous"}</strong>
-                                                    <span>to {don.organizationId?.name || "NGO"}</span>
-                                                </div>
-                                                <div className="item-value">
-                                                    {don.donationType === 'money' ? `₹${don.amount}` : don.donationType}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-
-                                <section className="system-health">
-                                    <div className="section-title-wrap">
-                                        <h3>System Status</h3>
-                                    </div>
-                                    <div className="health-metrics">
-                                        <div className="health-row">
-                                            <span>API Gateway</span>
-                                            <span className="health-tag online">Healthy</span>
+                            <div className="activity-list">
+                                {organizations.map(org => (
+                                    <div key={org._id} className="action-item-v2" style={{ borderLeft: org.verified ? '4px solid #16a34a' : '4px solid #f97316' }}>
+                                        <div className="action-icon">
+                                            {org.verified ? <ShieldCheck size={18} color="#16a34a" /> : <AlertCircle size={18} color="#f97316" />}
                                         </div>
-                                        <div className="health-row">
-                                            <span>Database (MongoDB)</span>
-                                            <span className="health-tag online">Connected</span>
-                                        </div>
-                                        <div className="health-row">
-                                            <span>PDF Generation Service</span>
-                                            <span className="health-tag online">Ready</span>
-                                        </div>
-                                    </div>
-                                </section>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'verification' && (
-                        <div className="admin-view animate-fade">
-                            <header className="board-header">
-                                <h1>NGO Verification Queue</h1>
-                                <p>Reviewing credentials for new organization registrations.</p>
-                            </header>
-
-                            <div className="verification-list">
-                                {organizations.filter(o => !o.verified).length > 0 ? (
-                                    organizations.filter(o => !o.verified).map(org => (
-                                        <div key={org._id} className="org-request-card">
-                                            <div className="req-header">
-                                                <div className="org-initials">{org.name.substring(0,2)}</div>
-                                                <div className="req-info">
-                                                    <h3>{org.name}</h3>
-                                                    <span>{org.category} • {org.city}</span>
-                                                </div>
+                                        <div className="action-info" style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <strong>{org.name}</strong>
+                                                {org.isFeatured && <span style={{ background: '#fefce8', color: '#ca8a04', padding: '2px 8px', borderRadius: '50px', fontSize: '0.65rem', fontWeight: 700 }}>FEATURED</span>}
                                             </div>
-                                            <div className="req-actions">
-                                                <button className="btn-approve" onClick={() => handleOrgAction(org._id, true)}>
-                                                    <CheckCircle2 size={18} /> Approve NGO
-                                                </button>
-                                                <button className="btn-reject" onClick={() => handleOrgAction(org._id, false)}>
-                                                    <XCircle size={18} /> Reject
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="empty-verification">
-                                        <CheckCircle2 size={48} color="#43a047" />
-                                        <h3>Queue Cleared</h3>
-                                        <p>No pending organization registrations at this time.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'users' && (
-                        <div className="admin-view animate-fade">
-                            <header className="board-header">
-                                <h1>User Directory</h1>
-                                <div className="directory-controls">
-                                    <div className="search-bar">
-                                        <Search size={18} />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Search volunteers by name, email or skills..." 
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </header>
-
-                            <table className="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Volunteer</th>
-                                        <th>Contact</th>
-                                        <th>Join Date</th>
-                                        <th>Status</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.filter(u => u.fullName.toLowerCase().includes(searchQuery.toLowerCase())).map(user => (
-                                        <tr key={user._id}>
-                                            <td>
-                                                <div className="user-cell">
-                                                    <strong>{user.fullName}</strong>
-                                                    <span>{user.location || "Location not set"}</span>
-                                                </div>
-                                            </td>
-                                            <td>{user.email}</td>
-                                            <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                                            <td><span className="status-tag active">Active</span></td>
-                                            <td><button className="btn-row-more"><MoreVertical size={16} /></button></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {(activeTab === 'ngos' || activeTab === 'ngos_ledger') && (
-                        <div className="admin-view animate-fade">
-                            <header className="board-header">
-                                <h1>NGO Ledger</h1>
-                                <p>Comprehensive listing of all registered organizations.</p>
-                            </header>
-
-                            <table className="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Organization</th>
-                                        <th>Category</th>
-                                        <th>Location</th>
-                                        <th>Verification</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {organizations.map(org => (
-                                        <tr key={org._id}>
-                                            <td><strong>{org.name}</strong></td>
-                                            <td>{org.category}</td>
-                                            <td>{org.city}</td>
-                                            <td>
-                                                <span className={org.verified ? 'verif-tag valid' : 'verif-tag pending'}>
-                                                    {org.verified ? 'Verified' : 'Pending'}
-                                                </span>
-                                            </td>
-                                            <td><span className="status-tag active">Active</span></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {activeTab === 'complaints' && (
-                        <div className="admin-view animate-fade">
-                            <header className="board-header">
-                                <h1>User Complaints</h1>
-                                <p>Grievance redressal and safety monitoring.</p>
-                            </header>
-                            
-                            <div className="complaints-grid">
-                                {complaints.length > 0 ? (
-                                    complaints.map(complaint => (
-                                        <div key={complaint._id} className={`complaint-card-admin ${complaint.status}`}>
-                                            <div className="comp-head">
-                                                <span className={`status-dot ${complaint.status}`}></span>
-                                                <h3>{complaint.subject}</h3>
-                                                <span className="comp-date">{new Date(complaint.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <p className="comp-desc">{complaint.description}</p>
-                                            <div className="comp-user">
-                                                <strong>From: {complaint.user?.fullName}</strong>
-                                                <span>{complaint.user?.email}</span>
-                                            </div>
-                                            {complaint.status === 'pending' && (
-                                                <div className="comp-actions">
-                                                    <button className="btn-resolve" onClick={() => handleComplaintStatus(complaint._id, 'resolved')}>
-                                                        Mark Resolved
-                                                    </button>
-                                                    <button className="btn-dismiss" onClick={() => handleComplaintStatus(complaint._id, 'dismissed')}>
-                                                        Dismiss
-                                                    </button>
-                                                </div>
+                                            <span>{org.category} • {org.city || 'N/A'}</span>
+                                            {org.registrationCertificate && (
+                                                <a href={org.registrationCertificate} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'underline', marginTop: '8px' }}>
+                                                    <ShieldCheck size={12} /> Inspect Registration Proof
+                                                </a>
                                             )}
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="empty-complaints">
-                                        <MessageSquare size={48} color="#dfe6e9" />
-                                        <h3>Operational Safety</h3>
-                                        <p>No active user complaints or safety reports filed.</p>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {!org.verified ? (
+                                                <>
+                                                    <button className="btn-glass" style={{ background: '#f0fdf4', color: '#16a34a' }} onClick={() => handleOrgAction(org._id, true)}>
+                                                        Approve
+                                                    </button>
+                                                    <button className="btn-glass" style={{ color: '#dc2626' }} onClick={() => handleOrgAction(org._id, false)}>
+                                                        Reject
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button 
+                                                        className="btn-glass" 
+                                                        style={{ background: org.isFeatured ? '#fffbeb' : '#f1f5f9', color: org.isFeatured ? '#ca8a04' : '#64748b' }} 
+                                                        onClick={() => handleFeatureAction(org._id, !org.isFeatured)}
+                                                    >
+                                                        {org.isFeatured ? 'Unfeature' : 'Feature'}
+                                                    </button>
+                                                    <button className="btn-glass" style={{ color: '#dc2626' }} onClick={() => handleOrgAction(org._id, false)}>
+                                                        Suspect/Revoke
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
+                                ))}
+                                {organizations.length === 0 && (
+                                    <p style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>No organizations found.</p>
                                 )}
                             </div>
                         </div>
-                    )}
-                </main>
-            </div>
+                    </div>
+                )}
+
+                {activeTab === 'users' && (
+                    <div className="animate-fade">
+                        <div className="chart-container-v2">
+                            <div className="container-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3>User Directory</h3>
+                                <div className="search-bar-v2" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f1f5f9', padding: '5px 15px', borderRadius: '10px' }}>
+                                    <Search size={16} color="#64748b" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search..." 
+                                        style={{ border: 'none', background: 'transparent', outline: 'none', padding: '5px' }}
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ overflowX: 'auto', marginTop: '1rem' }}>
+                                <table className="ledger-table" style={{ width: '100%' }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Join Date</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {users.filter(u => u.fullName.toLowerCase().includes(searchQuery.toLowerCase())).map(user => (
+                                            <tr key={user._id}>
+                                                <td><strong>{user.fullName}</strong></td>
+                                                <td>{user.email}</td>
+                                                <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                                                <td><span className="trending" style={{ background: '#f1f5f9', color: '#64748b' }}>{user.role}</span></td>
+                                                <td><span className="trending" style={{ background: '#f0fdf4', color: '#16a34a' }}>Active</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'withdrawals' && (
+                    <div className="animate-fade">
+                        <div className="chart-container-v2">
+                            <div className="container-header">
+                                <h3>Fund Liquidation Requests</h3>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table className="ledger-table" style={{ width: '100%' }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Organization</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {withdrawals.map(w => (
+                                            <tr key={w._id}>
+                                                <td><strong>{w.ngoId?.fullName || 'Unknown'}</strong></td>
+                                                <td><strong style={{ color: 'var(--primary)' }}>₹{w.amount.toLocaleString()}</strong></td>
+                                                <td>
+                                                    <span className="trending" style={{ 
+                                                        background: w.status === 'pending' ? '#fff7ed' : w.status === 'approved' ? '#f0fdf4' : '#fef2f2',
+                                                        color: w.status === 'pending' ? '#c2410c' : w.status === 'approved' ? '#16a34a' : '#dc2626'
+                                                    }}>
+                                                        {w.status}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {w.status === 'pending' && (
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <button onClick={() => handleWithdrawalAction(w._id, 'approved')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#16a34a' }}><CheckCircle2 size={18} /></button>
+                                                            <button onClick={() => handleWithdrawalAction(w._id, 'rejected')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626' }}><XCircle size={18} /></button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {withdrawals.length === 0 && <p style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>No pending financial requests.</p>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'complaints' && (
+                    <div className="animate-fade">
+                         <div className="grid-v2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+                            {complaints.map(complaint => (
+                                <div key={complaint._id} className="stat-card-v2">
+                                    <div className="stat-content">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                            <span className="trending" style={{ background: complaint.status === 'pending' ? '#fef2f2' : '#f0fdf4', color: complaint.status === 'pending' ? '#dc2626' : '#16a34a' }}>
+                                                {complaint.status}
+                                            </span>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(complaint.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '5px' }}>{complaint.subject}</h3>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{complaint.description}</p>
+                                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '10px' }}>
+                                            <p style={{ fontSize: '0.8rem' }}><strong>From:</strong> {complaint.user?.fullName}</p>
+                                        </div>
+                                        {complaint.status === 'pending' && (
+                                            <button className="btn-glass" style={{ width: '100%', marginTop: '1rem' }} onClick={() => handleComplaintStatus(complaint._id, 'resolved')}>
+                                                Mark Resolved
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                         </div>
+                    </div>
+                )}
+            </main>
         </div>
     );
 };

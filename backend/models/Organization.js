@@ -41,9 +41,33 @@ const organizationSchema = mongoose.Schema(
             type: String,
             required: [true, 'Please add a description']
         },
+        image: {
+            type: String,
+            default: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=60'
+        },
+        registrationCertificate: {
+            type: String,
+            default: null
+        },
         verified: {
             type: Boolean,
             default: false
+        },
+        isFeatured: {
+            type: Boolean,
+            default: false
+        },
+        emergencyNote: {
+            type: String,
+            default: null
+        },
+        averageRating: {
+            type: Number,
+            default: 0
+        },
+        reviewCount: {
+            type: Number,
+            default: 0
         },
         location: {
             type: {

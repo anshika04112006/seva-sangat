@@ -16,10 +16,12 @@ const Navbar = () => {
     };
 
     const navLinks = [
-        { name: 'Home', path: '/', roles: ['guest', 'volunteer', 'organization', 'admin'] },
+        { name: 'Home', path: '/', roles: ['guest', 'volunteer', 'organization', 'admin', 'beneficiary'] },
+        { name: 'Impact', path: '/impact', roles: ['volunteer'] },
+        { name: 'Skill Hub', path: '/skills', roles: ['volunteer', 'beneficiary'] },
         { name: 'Find NGOs', path: '/ngos', roles: ['volunteer', 'admin'] },
-        { name: 'Volunteer', path: '/recommendations', roles: ['volunteer'] },
-        { name: 'Events', path: '/events', roles: ['volunteer', 'organization', 'admin'] },
+        { name: 'Beneficiary Hub', path: '/beneficiary-dashboard', roles: ['beneficiary'] },
+        { name: 'Events', path: '/events', roles: ['volunteer', 'organization', 'admin', 'beneficiary'] },
         { name: 'Donate', path: '/donate', roles: ['volunteer'] },
         { name: 'Certificates', path: '/certificates', roles: ['volunteer'] },
         { name: 'NGO Dashboard', path: '/ngo-dashboard', roles: ['organization'] },
@@ -50,6 +52,7 @@ const Navbar = () => {
                             <span className="user-role-badge">
                                 {user.role === 'admin' && <Shield size={14} />}
                                 {user.role === 'organization' && <Building2 size={14} />}
+                                {user.role === 'beneficiary' && <Star size={14} />}
                                 {user.role === 'volunteer' && <User size={14} />}
                                 {user.role}
                             </span>

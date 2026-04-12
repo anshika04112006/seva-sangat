@@ -10,7 +10,7 @@ const Booking = require('../models/Booking');
 const getPlatformStats = async (req, res) => {
     try {
         const [userCount, orgCount, donationCount, eventCount] = await Promise.all([
-            User.countDocuments({ role: 'volunteer' }),
+            User.countDocuments({ role: 'user' }),  // real role is 'user'
             Organization.countDocuments(),
             Donation.countDocuments(),
             Event.countDocuments()
@@ -58,7 +58,10 @@ const getAllOrganizations = async (req, res) => {
 // @access  Private/Admin
 const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({ role: 'volunteer' }).sort({ createdAt: -1 });
+        // Include volunteers ('user') and org accounts ('organization')
+        const users = await User.find({ role: { $in: ['user', 'organization'] } })
+            .select('-password -otp -otpExpire')
+            .sort({ createdAt: -1 });
         res.status(200).json({ success: true, count: users.length, data: users });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -87,9 +90,32 @@ const updateOrgStatus = async (req, res) => {
     }
 };
 
+// @desc    Update org featured status
+// @route   PUT /api/admin/orgs/:id/featured
+// @access  Private/Admin
+const updateOrgFeatured = async (req, res) => {
+    try {
+        const { isFeatured } = req.body;
+        const org = await Organization.findByIdAndUpdate(
+            req.params.id,
+            { isFeatured },
+            { new: true }
+        );
+        if (!org) return res.status(404).json({ success: false, message: 'Organization not found' });
+        res.status(200).json({ success: true, data: org });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get all withdrawals (admin view, with populated NGO name)
+// @route   GET /api/admin/withdrawals  (admin calls /api/withdrawals which is already protected + admin)
+// The existing withdrawalController.getWithdrawals is used by admin — just needs populate
+
 module.exports = {
     getPlatformStats,
     getAllOrganizations,
     getAllUsers,
-    updateOrgStatus
+    updateOrgStatus,
+    updateOrgFeatured
 };

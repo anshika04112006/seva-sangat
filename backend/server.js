@@ -29,6 +29,8 @@ app.use('/api/donations', require('./routes/donationRoutes'));
 app.use('/api/certificates', require('./routes/certificateRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/complaints', require('./routes/complaintRoutes'));
+app.use('/api/withdrawals', require('./routes/withdrawalRoutes'));
+app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 app.get('/', (req, res) => {
     res.send('Seva Sangat API is running...');

@@ -50,6 +50,14 @@ const eventSchema = mongoose.Schema(
             type: String,
             enum: ['upcoming', 'ongoing', 'completed'],
             default: 'upcoming'
+        },
+        isUrgent: {
+            type: Boolean,
+            default: false
+        },
+        averageRating: {
+            type: Number,
+            default: 0
         }
     },
     {
